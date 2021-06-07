@@ -3,14 +3,31 @@
 
 import * as React from 'react'
 
-function useLocalStorageHook(value, key) {
+function useLocalStorageHook(defaultValue = '', key, {serialize = JSON.stringify, deserialize = JSON.parse} = {} ) {
   const [state, setState] = React.useState( 
-    () => window.localStorage.getItem(key) || value
+    () => {
+      const valueInLocalStorage = window.localStorage.getItem(key)
+      if (valueInLocalStorage) {
+        try {
+          return deserialize(valueInLocalStorage)
+        } catch (error) {
+          window.localStorage.removeItem(key)
+        }
+      }
+      return typeof defaultValue === 'function' ? defaultValue() : defaultValue
+    }
   )
 
+  const prevKeyRef = React.useRef(key)
+
   React.useEffect(() => {
-    window.localStorage.setItem(key, state)
-  }, [key, state])
+    const prevKey = prevKeyRef.current
+    if (prevKey !== key) {
+      window.localStorage.removeItem(prevKey)
+    }
+    prevKeyRef.current = key
+    window.localStorage.setItem(key, serialize(state))
+  }, [key, state, serialize])
 
   return [state, setState]
 }
